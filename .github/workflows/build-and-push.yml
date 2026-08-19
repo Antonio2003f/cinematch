@@ -34,13 +34,19 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Tag-urile Docker trebuie sa fie complet lowercase, dar
+      # github.repository_owner pastreaza majusculele reale ale contului
+      # (ex. "Antonio2003f") - il convertim explicit inainte de folosire.
+      - name: Normalizare nume owner (lowercase)
+        run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
       - name: Build si push imagine backend (arm64)
         uses: docker/build-push-action@v6
         with:
           context: ./backend
           platforms: linux/arm64
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/cinematch-backend:latest
+          tags: ghcr.io/${{ env.OWNER_LC }}/cinematch-backend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -63,12 +69,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Normalizare nume owner (lowercase)
+        run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
       - name: Build si push imagine frontend (arm64)
         uses: docker/build-push-action@v6
         with:
           context: ./frontend
           platforms: linux/arm64
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/cinematch-frontend:latest
+          tags: ghcr.io/${{ env.OWNER_LC }}/cinematch-frontend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
