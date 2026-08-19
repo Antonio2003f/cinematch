@@ -105,7 +105,7 @@ services:
       - backend
       - frontend
     healthcheck:
-      test: ["CMD-SHELL", "cat < /dev/null > /dev/tcp/127.0.0.1/80"]
+      test: ["CMD", "curl", "-f", "http://localhost/api/health"]
       interval: 10s
       timeout: 5s
       retries: 5
