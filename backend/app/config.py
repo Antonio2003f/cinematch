@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     qdrant_port: int = 6333
     qdrant_collection: str = "movies"
 
+    rabbitmq_host: str = "rabbitmq"
+    rabbitmq_port: int = 5672
+    rabbitmq_user: str = "cinematch"
+    rabbitmq_password: str
+    rabbitmq_queue: str = "movie_ingestion"
+
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
 
     @property
@@ -24,6 +30,10 @@ class Settings(BaseSettings):
             f"postgresql://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
+
+    @property
+    def rabbitmq_url(self) -> str:
+        return f"amqp://{self.rabbitmq_user}:{self.rabbitmq_password}@{self.rabbitmq_host}:{self.rabbitmq_port}/"
 
     class Config:
         env_file = ".env"
