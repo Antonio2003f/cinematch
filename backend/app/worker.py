@@ -5,7 +5,8 @@ from qdrant_client.models import PointStruct
 from sentence_transformers import SentenceTransformer
 
 from app.config import settings
-from app.db import qdrant_client
+from app.db import qdrant_client, SessionLocal
+from app.models import Movie
 
 _model: SentenceTransformer | None = None
 
@@ -20,20 +21,40 @@ def get_model() -> SentenceTransformer:
 def process_message(ch, method, properties, body):
     data = json.loads(body)
     movie_id = data["movie_id"]
-    title = data["title"]
-    plot = data["plot"]
 
-    print(f"Procesez film {movie_id}: {title}")
+    db = SessionLocal()
+    try:
+        movie = db.query(Movie).filter(Movie.id == movie_id).first()
+    finally:
+        db.close()
+
+    if movie is None:
+        print(f"Film {movie_id} nu a fost gasit in Postgres, sar peste.")
+        ch.basic_ack(delivery_tag=method.delivery_tag)
+        return
+
+    print(f"Procesez film {movie.id}: {movie.title}")
 
     model = get_model()
-    vector = model.encode(plot).tolist()
+    vector = model.encode(movie.plot or "").tolist()
+
+    payload = {
+        "id": movie.id,
+        "title": movie.title,
+        "year": movie.year,
+        "director": movie.director,
+        "genre": movie.genre,
+        "rating": movie.rating,
+        "plot": movie.plot,
+        "poster_url": movie.poster_url,
+    }
 
     qdrant_client.upsert(
         collection_name=settings.qdrant_collection,
-        points=[PointStruct(id=movie_id, vector=vector, payload=data)],
+        points=[PointStruct(id=movie.id, vector=vector, payload=payload)],
     )
 
-    print(f"Embedding generat si salvat pentru filmul {movie_id}.")
+    print(f"Embedding generat si salvat pentru filmul {movie.id}.")
     ch.basic_ack(delivery_tag=method.delivery_tag)
 
 
