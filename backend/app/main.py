@@ -9,8 +9,12 @@ from app.models import Movie
 from app.db import get_db
 from pydantic import BaseModel
 
+
 app = FastAPI(title="CineMatch API")
 
+from prometheus_fastapi_instrumentator import Instrumentator
+
+Instrumentator().instrument(app).expose(app)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

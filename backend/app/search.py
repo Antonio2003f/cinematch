@@ -10,6 +10,10 @@ _model: SentenceTransformer | None = None
 
 CACHE_TTL_SECONDS = 3600
 
+from prometheus_client import Counter
+
+cache_hits = Counter("cinematch_cache_hits_total", "Numar de cache hit-uri Redis")
+cache_misses = Counter("cinematch_cache_misses_total", "Numar de cache miss-uri Redis")
 
 def get_model() -> SentenceTransformer:
     global _model
@@ -28,8 +32,10 @@ def semantic_search(query: str, limit: int = 12) -> tuple[list[dict], bool]:
 
     cached = redis_client.get(key)
     if cached:
+        cache_hits.inc()
         return json.loads(cached), True
-
+    
+    cache_misses.inc()
     model = get_model()
     vector = model.encode(query).tolist()
 
