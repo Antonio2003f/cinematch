@@ -75,6 +75,7 @@ jobs:
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
+            export KUBECONFIG=$HOME/.kube/config
             kubectl set image deployment/backend backend=ghcr.io/${{ env.OWNER_LC }}/cinematch-backend:${{ github.sha }} -n cinematch
             kubectl set image deployment/frontend frontend=ghcr.io/${{ env.OWNER_LC }}/cinematch-frontend:${{ github.sha }} -n cinematch
             kubectl set image deployment/ingestion-worker ingestion-worker=ghcr.io/${{ env.OWNER_LC }}/cinematch-backend:${{ github.sha }} -n cinematch
