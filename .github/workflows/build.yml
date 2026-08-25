@@ -1,0 +1,83 @@
+name: Build and Push to GHCR
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+  packages: write
+jobs:
+  build-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout cod
+        uses: actions/checkout@v4
+      - name: Configurare QEMU (emulare cross-platform)
+        uses: docker/setup-qemu-action@v3
+      - name: Configurare Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Autentificare la GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Normalizare nume owner (lowercase)
+        run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+      - name: Build si push imagine backend (arm64)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          platforms: linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ env.OWNER_LC }}/cinematch-backend:latest
+            ghcr.io/${{ env.OWNER_LC }}/cinematch-backend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout cod
+        uses: actions/checkout@v4
+      - name: Configurare QEMU (emulare cross-platform)
+        uses: docker/setup-qemu-action@v3
+      - name: Configurare Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Autentificare la GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Normalizare nume owner (lowercase)
+        run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+      - name: Build si push imagine frontend (arm64)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          platforms: linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ env.OWNER_LC }}/cinematch-frontend:latest
+            ghcr.io/${{ env.OWNER_LC }}/cinematch-frontend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+  deploy:
+    needs: [build-backend, build-frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Normalizare nume owner (lowercase)
+        run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+      - name: Deploy pe cluster K8s (prin SSH)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            kubectl set image deployment/backend backend=ghcr.io/${{ env.OWNER_LC }}/cinematch-backend:${{ github.sha }} -n cinematch
+            kubectl set image deployment/frontend frontend=ghcr.io/${{ env.OWNER_LC }}/cinematch-frontend:${{ github.sha }} -n cinematch
+            kubectl set image deployment/ingestion-worker ingestion-worker=ghcr.io/${{ env.OWNER_LC }}/cinematch-backend:${{ github.sha }} -n cinematch
+            kubectl rollout status deployment/backend -n cinematch --timeout=180s
+            kubectl rollout status deployment/frontend -n cinematch --timeout=180s
+            kubectl rollout status deployment/ingestion-worker -n cinematch --timeout=180s
